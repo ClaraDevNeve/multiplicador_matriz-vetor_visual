@@ -34,7 +34,7 @@
 
 ---
 
-## Maria Clara Neves Gomes (4-5 min) — Parte mais cobrada
+## Maria Clara Neves Gomes (4-5 min) — 
 
 ### 3. Explicação do Código
 - **Visão geral da arquitetura:**
