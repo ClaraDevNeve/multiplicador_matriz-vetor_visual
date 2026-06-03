@@ -137,7 +137,7 @@ class Canvas2D(tk.Frame):
 
         hdr = tk.Frame(self, bg=BG)
         hdr.pack(fill="x", pady=(0, 4))
-        tk.Label(hdr, text="Visualização da Transformação",
+        tk.Label(hdr, text="Visualização",
                  font=("Helvetica", 10, "bold"), fg=TEXT, bg=BG).pack(side="left")
 
         tk.Label(hdr, text="Figura:", font=("Helvetica", 9),
@@ -161,23 +161,12 @@ class Canvas2D(tk.Frame):
         tk.Label(leg, text="Original", font=("Helvetica", 9),
                  fg=TEXT2, bg=BG).pack(side="left", padx=(3, 16))
         self._legend_dot(leg, C_TRSF_FILL, C_TRSF_BD)
-        tk.Label(leg, text="Transformada  ( b = A · vértice )", font=("Helvetica", 9),
-                 fg=TEXT2, bg=BG).pack(side="left", padx=(3, 16))
-        self._legend_dot(leg, AMBER_BG, C_VTXHI_O)
-        tk.Label(leg, text="Vértice ativo", font=("Helvetica", 9),
+        tk.Label(leg, text="Transformada", font=("Helvetica", 9),
                  fg=TEXT2, bg=BG).pack(side="left", padx=(3, 0))
-
-        self.lbl_status = tk.Label(
-            self, text="", font=("Courier New", 9),
-            fg=TEXT2, bg=BG, justify="left", wraplength=360,
-        )
-        self.lbl_status.pack(anchor="w", pady=(4, 0))
 
         self._scale   = 30.0
         self._orig    = None
         self._trsf    = None
-        self._vtx_idx = None
-        self._vtx_partial_trsf = None
 
         self._on_figura_changed_cb = None
         self._draw_empty()
@@ -188,9 +177,6 @@ class Canvas2D(tk.Frame):
     def _on_figura_changed(self, _=None):
         self._orig  = None
         self._trsf  = None
-        self._vtx_idx = None
-        self._vtx_partial_trsf = None
-        self.lbl_status.config(text="")
         self._draw_empty()
         if self._on_figura_changed_cb:
             self._on_figura_changed_cb()
@@ -274,7 +260,7 @@ class Canvas2D(tk.Frame):
                                          fill=C_AXIS_LB, font=("Helvetica", 7), anchor="e")
             i += 1
 
-    def _draw_poligono(self, vertices, fill, outline, alpha_outline=None, dash=None):
+    def _draw_poligono(self, vertices, fill, outline, dash=None):
         if len(vertices) < 2:
             return
         pts = [self._to_canvas(x, y) for x, y in vertices]
@@ -284,36 +270,13 @@ class Canvas2D(tk.Frame):
             kw["dash"] = dash
         self.canvas.create_polygon(*flat, **kw)
 
-    def _draw_arestas(self, vertices, color, width=1.5, dash=None):
-        pts = [self._to_canvas(x, y) for x, y in vertices]
-        n = len(pts)
-        for i in range(n):
-            x0, y0 = pts[i]
-            x1, y1 = pts[(i + 1) % n]
-            kw = dict(fill=color, width=width)
-            if dash:
-                kw["dash"] = dash
-            self.canvas.create_line(x0, y0, x1, y1, **kw)
-
-    def _draw_vertices(self, vertices, fill, outline, r=None, indices=None):
+    def _draw_vertices(self, vertices, fill, outline, r=None):
         if r is None:
             r = self.R_VTX
-        for i, (wx, wy) in enumerate(vertices):
-            if indices is not None and i not in indices:
-                continue
+        for wx, wy in vertices:
             cx, cy = self._to_canvas(wx, wy)
             self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
                                      fill=fill, outline=outline, width=2)
-
-    def _draw_vertice_destaque(self, wx, wy, fill, outline, label=""):
-        r = self.R_HI
-        cx, cy = self._to_canvas(wx, wy)
-        self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
-                                 fill=fill, outline=outline, width=2.5)
-        if label:
-            self.canvas.create_text(cx + r + 5, cy - r - 3, text=label,
-                                     fill=outline, font=("Helvetica", 8, "bold"),
-                                     anchor="w")
 
     def _draw_seta(self, wx0, wy0, wx1, wy1, color=C_ARROW):
         cx0, cy0 = self._to_canvas(wx0, wy0)
@@ -328,26 +291,19 @@ class Canvas2D(tk.Frame):
     def limpar(self):
         self._orig  = None
         self._trsf  = None
-        self._vtx_idx = None
-        self._vtx_partial_trsf = None
-        self.lbl_status.config(text="")
         self._scale = 30.0
         self._draw_empty()
 
     def mostrar_figura_completa(self, orig, trsf):
         self._orig = orig
         self._trsf = trsf
-        self._vtx_idx = None
-        self._vtx_partial_trsf = None
         self._redraw()
 
-    def mostrar_vertice_ativo(self, orig, trsf_completo, vtx_idx,
-                               vtx_orig, vtx_trsf, vtx_partial=None):
+    def mostrar_vertice_ativo(self, orig, trsf_completo, vtx_orig, vtx_trsf):
         self._orig  = orig
         self._trsf  = trsf_completo
-        self._vtx_partial_trsf = vtx_partial
-        self._vtx_orig_coords  = vtx_orig
-        self._vtx_trsf_coords  = vtx_trsf
+        self._vtx_orig = vtx_orig
+        self._vtx_trsf = vtx_trsf
         self._redraw(destaque=True)
 
     def _redraw(self, destaque=False):
