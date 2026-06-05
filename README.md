@@ -1,21 +1,15 @@
-# Multiplicador Matriz-Vetor Visual
+# Transformações 2D — Multiplicação Matriz-Vetor Visual
 
-**Estudo de caso 5** – Exibição passo a passo do cálculo matricial.
-
-Aplicação em Python com interface gráfica (Tkinter) que demonstra visualmente a multiplicação de uma matriz por um vetor, mostrando cada etapa do cálculo de forma interativa.
+Aplicação em Python com interface gráfica (Tkinter) que aplica transformações lineares 2D a figuras geométricas, mostrando passo a passo o cálculo matriz-vetor para cada vértice.
 
 ## Funcionalidades
 
-- **Matriz editável**: Insira valores manualmente nas células da matriz A
-- **Vetor editável**: Defina os valores do vetor x
-- **Cálculo passo a passo**: Visualize cada linha do resultado sendo calculada individualmente
-- **Destaque visual**: 
-  - Linha da matriz em azul
-  - Elementos do vetor em âmbar
-  - Resultado atual em verde
-- **Navegação**: Botões "Anterior" e "Próximo" para percorrer os passos
-- **Geração aleatória**: Preencha a matriz e vetor com valores aleatórios
-- **Tamanhos configuráveis**: Suporte para matrizes 2×2, 3×3 e 4×4 (e vetores correspondentes)
+- **Figuras geométricas**: Triângulo, quadrado e pentágono pré-definidos
+- **Transformações**: Botões de escala (×2, ×½), rotação 45° e reflexão no eixo Y
+- **Matriz editável**: Altere os valores da matriz de transformação A manualmente
+- **Visualização 2D**: Grid, eixos, polígono original em azul e transformado em verde
+- **Passo a passo**: Navegação entre vértices com destaque das células (linha em azul, vetor em âmbar, resultado em verde)
+- **Setas animadas**: Conexão visual entre vértice original e sua imagem
 
 ## Como executar
 
