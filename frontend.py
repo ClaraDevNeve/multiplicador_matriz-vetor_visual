@@ -1,9 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 import math
-from functools import partial
 
-from backend import FIGURAS, aplicar_matriz, transformar_figura, multiplicar_matriz_vetor, fmt
+from backend import FIGURAS, transformar_figura
 
 
 BG        = "#f9f9f7"
@@ -12,14 +11,6 @@ BORDER    = "#d3d1c7"
 TEXT      = "#2c2c2a"
 TEXT2     = "#5f5e5a"
 TEXT3     = "#888780"
-
-BLUE_BG   = "#e6f1fb"
-BLUE_BD   = "#85b7eb"
-BLUE_TX   = "#0c447c"
-
-AMBER_BG  = "#faeeda"
-AMBER_BD  = "#ef9f27"
-AMBER_TX  = "#633806"
 
 GREEN_BG  = "#eaf3de"
 GREEN_BD  = "#639922"
@@ -35,8 +26,6 @@ C_ORIG_FILL = "#c8dff8"
 C_ORIG_BD   = "#2b72c2"
 C_TRSF_FILL = "#c6eaad"
 C_TRSF_BD   = "#3e8c1a"
-C_VTXHI_O   = "#ef9f27"
-C_VTXHI_T   = "#c07020"
 C_ARROW     = "#d06010"
 
 
@@ -65,8 +54,6 @@ class Celula(tk.Frame):
 
     def highlight(self, style):
         paletas = {
-            "row":    (BLUE_BG,  BLUE_BD,  BLUE_TX),
-            "col":    (AMBER_BG, AMBER_BD, AMBER_TX),
             "result": (GREEN_BG, GREEN_BD, GREEN_TX),
             None:     (BG2,      BORDER,   TEXT),
         }
@@ -131,7 +118,6 @@ class Canvas2D(tk.Frame):
     SIZE   = 360
     MARGIN = 36
     R_VTX  = 5
-    R_HI   = 8
 
     def __init__(self, parent, **kw):
         super().__init__(parent, bg=BG, **kw)
@@ -261,15 +247,12 @@ class Canvas2D(tk.Frame):
                                          fill=C_AXIS_LB, font=("Helvetica", 7), anchor="e")
             i += 1
 
-    def _draw_poligono(self, vertices, fill, outline, dash=None):
+    def _draw_poligono(self, vertices, fill, outline):
         if len(vertices) < 2:
             return
         pts = [self._to_canvas(x, y) for x, y in vertices]
         flat = [c for p in pts for c in p]
-        kw = dict(fill=fill, outline=outline, width=2)
-        if dash:
-            kw["dash"] = dash
-        self.canvas.create_polygon(*flat, **kw)
+        self.canvas.create_polygon(*flat, fill=fill, outline=outline, width=2)
 
     def _draw_vertices(self, vertices, fill, outline, r=None):
         if r is None:
@@ -300,14 +283,7 @@ class Canvas2D(tk.Frame):
         self._trsf = trsf
         self._redraw()
 
-    def mostrar_vertice_ativo(self, orig, trsf_completo, vtx_orig, vtx_trsf):
-        self._orig  = orig
-        self._trsf  = trsf_completo
-        self._vtx_orig = vtx_orig
-        self._vtx_trsf = vtx_trsf
-        self._redraw(destaque=True)
-
-    def _redraw(self, destaque=False):
+    def _redraw(self):
         pts = []
         if self._orig:
             pts.append(self._orig)
@@ -324,37 +300,15 @@ class Canvas2D(tk.Frame):
         if not self._orig:
             return
 
-
         self._draw_poligono(self._orig, fill=C_ORIG_FILL, outline=C_ORIG_BD)
         self._draw_vertices(self._orig, fill=C_ORIG_FILL, outline=C_ORIG_BD)
 
         if self._trsf:
-            dash = None if not destaque else (4, 3)
-            self._draw_poligono(self._trsf, fill=C_TRSF_FILL, outline=C_TRSF_BD, dash=dash)
+            self._draw_poligono(self._trsf, fill=C_TRSF_FILL, outline=C_TRSF_BD)
             self._draw_vertices(self._trsf, fill=C_TRSF_FILL, outline=C_TRSF_BD)
-            if not destaque:
-                for (ox, oy), (tx, ty) in zip(self._orig, self._trsf):
-                    if (ox, oy) != (tx, ty):
-                        self._draw_seta(ox, oy, tx, ty)
-
-
-        if destaque and self._vtx_idx is not None:
-            vi = self._vtx_idx
-            ox, oy = self._vtx_orig_coords
-
-            if self._vtx_trsf_coords:
-                tx, ty = self._vtx_trsf_coords
-                self._draw_seta(ox, oy, tx, ty, color=C_VTXHI_O)
-                self._draw_vertice_destaque(tx, ty, AMBER_BG, C_VTXHI_T,
-                                             label=f"v{vi+1}′ ({tx:.3g}, {ty:.3g})")
-            elif self._vtx_partial_trsf:
-                px, py = self._vtx_partial_trsf
-                self._draw_seta(ox, oy, px, py, color=C_VTXHI_O)
-                self._draw_vertice_destaque(px, py, AMBER_BG, C_VTXHI_T,
-                                             label=f"x′={px:.3g}…")
-
-            self._draw_vertice_destaque(ox, oy, AMBER_BG, C_VTXHI_O,
-                                         label=f"v{vi+1} ({ox:.3g}, {oy:.3g})")
+            for (ox, oy), (tx, ty) in zip(self._orig, self._trsf):
+                if (ox, oy) != (tx, ty):
+                    self._draw_seta(ox, oy, tx, ty)
 
 
 
@@ -365,12 +319,8 @@ class App(tk.Tk):
         self.resizable(False, False)
         self.config(bg=BG)
 
-        self._mat          = None
         self._vertices     = []
         self._trsf_total   = []
-        self._vtx_idx      = 0
-        self._passos       = []
-        self._passo_atual  = -1
 
         self._build_ui()
         self._valores_padrao()
@@ -416,49 +366,21 @@ class App(tk.Tk):
         self.arena = tk.Frame(esq, bg=BG, pady=10)
         self.arena.pack()
 
-        info = tk.Frame(esq, bg=BLUE_BG, bd=0,
-                        highlightthickness=1, highlightbackground=BLUE_BD)
-        info.pack(fill="x", pady=(0, 6))
-        tk.Label(info,
-                 text="  ℹ   O vetor exibido é o vértice selecionado  ·  "
-                      "A = transformação  ·  vᵢ = vértice original  ·  b = vértice novo",
-                 font=("Helvetica", 9), fg=BLUE_TX, bg=BLUE_BG,
-                 pady=5, padx=4).pack(fill="x")
+        self.resultado_frame = tk.Frame(esq, bg=BG2, bd=0,
+                                        highlightthickness=1,
+                                        highlightbackground=BORDER)
+        self.resultado_frame.pack(fill="x")
 
-        tk.Frame(esq, bg=BORDER, height=1).pack(fill="x", pady=4)
-        self.passo_frame = tk.Frame(esq, bg=BG2, bd=0,
-                                    highlightthickness=1,
-                                    highlightbackground=BORDER)
-        self.passo_frame.pack(fill="x")
-
-        self.lbl_passo_titulo = tk.Label(
-            self.passo_frame, text="", font=("Helvetica", 10),
+        self.lbl_resultado_titulo = tk.Label(
+            self.resultado_frame, text="", font=("Helvetica", 10),
             fg=TEXT2, bg=BG2, anchor="w", padx=12, pady=6)
-        self.lbl_passo_titulo.pack(fill="x")
+        self.lbl_resultado_titulo.pack(fill="x")
 
-        self.lbl_formula = tk.Label(
-            self.passo_frame, text="Selecione uma transformação e clique em Calcular.",
+        self.lbl_resultado = tk.Label(
+            self.resultado_frame, text="Selecione uma transformação e clique em Calcular.",
             font=("Courier New", 11), fg=TEXT, bg=BG2,
             anchor="w", padx=12, pady=4, wraplength=440, justify="left")
-        self.lbl_formula.pack(fill="x")
-
-        nav = tk.Frame(self.passo_frame, bg=BG2, pady=6)
-        nav.pack(fill="x", padx=12)
-
-        self.btn_prev = tk.Button(nav, text="← Anterior", command=self._prev,
-                                   bg=WHITE, fg=TEXT, relief="solid", bd=1,
-                                   font=("Helvetica", 10), padx=8, pady=2,
-                                   cursor="hand2", state="disabled")
-        self.btn_prev.pack(side="left")
-
-        self.dots_frame = tk.Frame(nav, bg=BG2)
-        self.dots_frame.pack(side="left", padx=12)
-
-        self.btn_next = tk.Button(nav, text="Próximo →", command=self._proximo,
-                                   bg=WHITE, fg=TEXT, relief="solid", bd=1,
-                                   font=("Helvetica", 10), padx=8, pady=2,
-                                   cursor="hand2", state="disabled")
-        self.btn_next.pack(side="right")
+        self.lbl_resultado.pack(fill="x")
 
         tk.Frame(esq, bg=BORDER, height=1).pack(fill="x", pady=4)
         acao = tk.Frame(esq, bg=BG, pady=8)
@@ -487,9 +409,7 @@ class App(tk.Tk):
         tk.Label(self, text="Edite a matriz A clicando nas células.",
                  font=("Helvetica", 9), fg=TEXT3, bg=BG, pady=6).pack()
 
-        self._rebuild_grades()
-
-    def _rebuild_grades(self):
+    def _rebuild_grades(self, cols):
         for w in self.arena.winfo_children():
             w.destroy()
 
@@ -505,10 +425,9 @@ class App(tk.Tk):
 
         bloco_v = tk.Frame(self.arena, bg=BG)
         bloco_v.pack(side="left", anchor="n")
-        self.lbl_vec_header = tk.Label(bloco_v, text="Vértice vᵢ", font=("Helvetica", 9),
-                                        fg=TEXT3, bg=BG)
-        self.lbl_vec_header.pack(anchor="w")
-        self.grade_vec = Grade(bloco_v, 2, 1)
+        tk.Label(bloco_v, text="Vértices originais  (v₁ … vₙ)", font=("Helvetica", 9),
+                 fg=TEXT3, bg=BG).pack(anchor="w")
+        self.grade_vec = Grade(bloco_v, 2, cols)
         self.grade_vec.pack()
 
         tk.Label(self.arena, text="=", font=("Helvetica", 22),
@@ -516,19 +435,33 @@ class App(tk.Tk):
 
         bloco_r = tk.Frame(self.arena, bg=BG)
         bloco_r.pack(side="left", anchor="n")
-        tk.Label(bloco_r, text="Resultado b", font=("Helvetica", 9),
+        tk.Label(bloco_r, text="Resultados  (b₁ … bₙ)", font=("Helvetica", 9),
                  fg=TEXT3, bg=BG).pack(anchor="w")
-        self.grade_res = Grade(bloco_r, 2, 1, somente_leitura=True)
-        for r in range(2):
-            cel = self.grade_res.celulas[r][0]
-            cel.set(0)
-            cel._entry.config(state="readonly", fg=TEXT3)
+        self.grade_res = Grade(bloco_r, 2, cols, somente_leitura=True)
         self.grade_res.pack()
 
+    def _preencher_vertices(self):
+        n = len(self._vertices)
+        for c in range(n):
+            self.grade_vec.celulas[0][c].set(self._vertices[c][0])
+            self.grade_vec.celulas[1][c].set(self._vertices[c][1])
+
+    def _limpar_resultados(self):
+        n = self.grade_res.colunas
+        for r in range(2):
+            for c in range(n):
+                cel = self.grade_res.celulas[r][c]
+                cel._entry.config(state="normal")
+                cel.set(0)
+                cel._entry.config(state="readonly", fg=TEXT3)
+
     def _valores_padrao(self):
-        self.grade_mat.set_dados([[1, 0], [0, 1]])
+        ident = [[1, 0], [0, 1]]
         self._vertices = self.canvas2d.get_figura()
-        self._atualizar_grade_vec(0)
+        self._rebuild_grades(len(self._vertices))
+        self.grade_mat.set_dados(ident)
+        self._preencher_vertices()
+        self._limpar_resultados()
 
     def _aplicar_exemplo(self, mat):
         self.grade_mat.set_dados(mat)
@@ -536,8 +469,14 @@ class App(tk.Tk):
 
     def _on_figura_changed(self):
         self._vertices = self.canvas2d.get_figura()
-        self._reset_calculo()
-        self._atualizar_grade_vec(0)
+        mat = self.grade_mat.get_dados()
+        self._rebuild_grades(len(self._vertices))
+        self.grade_mat.set_dados(mat)
+        self._preencher_vertices()
+        self._limpar_resultados()
+        self.lbl_resultado_titulo.config(text="")
+        self.lbl_resultado.config(
+            text="Selecione uma transformação e clique em Calcular.")
 
     def _limpar(self):
         self.grade_mat.set_dados([[0, 0], [0, 0]])
@@ -545,153 +484,40 @@ class App(tk.Tk):
         self.canvas2d.limpar()
 
     def _reset_calculo(self):
-        self._trsf_total  = []
-        self._vtx_idx     = 0
-        self._passos      = []
-        self._passo_atual = -1
+        self._trsf_total = []
         self._limpar_highlights()
-        for r in range(2):
-            cel = self.grade_res.celulas[r][0]
-            cel._entry.config(state="normal")
-            cel.set(0)
-            cel._entry.config(state="readonly", fg=TEXT3)
-        self.lbl_passo_titulo.config(text="")
-        self.lbl_formula.config(text="Selecione uma transformação e clique em Calcular.")
-        self.btn_prev.config(state="disabled")
-        self.btn_next.config(state="disabled")
-        self._atualizar_dots()
-
-    def _atualizar_grade_vec(self, idx):
-        if idx < len(self._vertices):
-            vx, vy = self._vertices[idx]
-            self.grade_vec.set_dados([[vx], [vy]])
-            n = len(self._vertices)
-            self.lbl_vec_header.config(text=f"Vértice v{idx+1}  (de {n})")
+        self._limpar_resultados()
+        self.lbl_resultado_titulo.config(text="")
+        self.lbl_resultado.config(
+            text="Selecione uma transformação e clique em Calcular.")
 
     def _calcular(self):
         mat = self.grade_mat.get_dados()
-        self._mat = mat
         self._vertices = self.canvas2d.get_figura()
+        n = len(self._vertices)
 
         self._trsf_total = transformar_figura(mat, self._vertices)
 
-        self.canvas2d.mostrar_figura_completa(self._vertices, self._trsf_total)
-        n = len(self._vertices)
-
-        self._vtx_idx = 0
-        self._iniciar_passos_vertice(0)
-
-        self.lbl_passo_titulo.config(
-            text=f"✓  {n} vértices transformados  —  veja o cálculo de cada um abaixo")
-        self.lbl_formula.config(
-            text="Use Anterior/Próximo para ver os passos do cálculo.")
-
-    def _iniciar_passos_vertice(self, idx):
-        self._vtx_idx = idx
-        vx, vy = self._vertices[idx]
-        self._atualizar_grade_vec(idx)
-        _, self._passos = multiplicar_matriz_vetor(self._mat, [vx, vy])
-
-        tx, ty = self._trsf_total[idx]
         for r in range(2):
-            cel = self.grade_res.celulas[r][0]
-            cel._entry.config(state="normal")
-            cel.set([tx, ty][r])
-            cel._entry.config(state="readonly")
-            cel.highlight(None)
+            for c in range(n):
+                self.grade_vec.celulas[r][c].set(self._vertices[c][r])
+                self.grade_res.celulas[r][c].readonly(
+                    self._trsf_total[c][r], "result")
 
-        self._passo_atual = 0
-        self._renderizar_passo()
+        self.canvas2d.mostrar_figura_completa(self._vertices, self._trsf_total)
 
-    def _proximo(self):
-        if self._passo_atual < len(self._passos) - 1:
-            self._passo_atual += 1
-            self._renderizar_passo()
-
-    def _prev(self):
-        if self._passo_atual > 0:
-            self._passo_atual -= 1
-            self._renderizar_passo()
-
-
-    def _renderizar_passo(self):
-        if self._passo_atual < 0 or self._passo_atual >= len(self._passos):
-            return
-
-        self._limpar_highlights()
-        step = self._passos[self._passo_atual]
-
-        self.btn_prev.config(state="normal" if self._passo_atual > 0 else "disabled")
-        self.btn_next.config(
-            state="normal" if self._passo_atual < len(self._passos) - 1 else "disabled")
-        self._atualizar_dots()
-
-        vi = self._vtx_idx
-        vx, vy = self._vertices[vi]
-        tx, ty = self._trsf_total[vi]
-
-        if step["tipo"] == "pronto":
-            self.lbl_passo_titulo.config(
-                text=f"✓  Vértice {vi + 1}  calculado")
-            self.lbl_formula.config(
-                text=f"v{vi+1} = ({vx:.3g}, {vy:.3g})  →  "
-                     f"A·v{vi+1} = ({tx:.3g}, {ty:.3g})\n"
-                     f"Navegue pelos vértices com ← → para ver os outros.")
-            for r in range(2):
-                self.grade_res.celulas[r][0].highlight("result")
-
-            self.canvas2d.mostrar_vertice_ativo(
-                self._vertices, self._trsf_total,
-                vi, (vx, vy), (tx, ty),
-            )
-            self.canvas2d.lbl_status.config(
-                text=f"v{vi+1} ({vx:.3g}, {vy:.3g})  →  b ({tx:.3g}, {ty:.3g})")
-            return
-
-        linha = step["linha"]
-        termos = step["termos"]
-
-        coordenada = "x′  (nova coord. x)" if linha == 0 else "y′  (nova coord. y)"
-        self.lbl_passo_titulo.config(
-            text=f"Vértice {vi + 1}  —  Passo {self._passo_atual + 1} "
-                 f"de {len(self._passos) - 1}  —  calculando {coordenada}")
-
-        for c in range(2):
-            self.grade_mat.celulas[linha][c].highlight("row")
-            self.grade_vec.celulas[c][0].highlight("col")
-        self.grade_res.celulas[linha][0].highlight("result")
-
-        partes = [f"{fmt(a)} × {fmt(x)}" for a, x, *_ in termos]
-        total = termos[-1][3]
-        formula = (f"b[{linha + 1}]  =  " +
-                   "  +  ".join(partes) +
-                   f"  =  {fmt(total)}")
-        self.lbl_formula.config(text=formula)
-
-        if linha == 0:
-            self.canvas2d.mostrar_vertice_ativo(
-                self._vertices, None,
-                vi, (vx, vy), None, vtx_partial=partial,
-            )
-            self.canvas2d.lbl_status.config(
-                text=f"v{vi+1} ({vx:.3g}, {vy:.3g})  →  x′ = {total:.3g},  y′ = ?")
-        else:
-            self.canvas2d.mostrar_vertice_ativo(
-                self._vertices, self._trsf_total,
-                vi, (vx, vy), (tx, ty),
-            )
-            self.canvas2d.lbl_status.config(
-                text=f"v{vi+1} ({vx:.3g}, {vy:.3g})  →  b ({tx:.3g}, {ty:.3g})")
+        self.lbl_resultado_titulo.config(
+            text=f"✓  {n} vértices transformados")
+        self.lbl_resultado.config(
+            text=f"A · [v₁ … v{n}]  =  [b₁ … b{n}]   ·   "
+                 f"a mesma matriz A aplicada em todos os {n} vértices simultaneamente\n"
+                 + "  |  ".join(
+                     f"v{i+1}({self._vertices[i][0]:.3g},{self._vertices[i][1]:.3g})→"
+                     f"({self._trsf_total[i][0]:.3g},{self._trsf_total[i][1]:.3g})"
+                     for i in range(n)
+                 ))
 
     def _limpar_highlights(self):
         self.grade_mat.limpar_highlights()
         self.grade_vec.limpar_highlights()
         self.grade_res.limpar_highlights()
-
-    def _atualizar_dots(self):
-        for w in self.dots_frame.winfo_children():
-            w.destroy()
-        for i in range(len(self._passos)):
-            cor = ACCENT if i == self._passo_atual else BORDER
-            tk.Label(self.dots_frame, text="●", fg=cor, bg=BG2,
-                     font=("Helvetica", 9)).pack(side="left", padx=1)
