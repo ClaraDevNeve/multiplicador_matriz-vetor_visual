@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import math
+from functools import partial
 
 from backend import FIGURAS, aplicar_matriz, transformar_figura, multiplicar_matriz_vetor, fmt
 
