@@ -20,7 +20,7 @@ Aplicação em Python com interface gráfica (Tkinter) que demonstra visualmente
 ## Como executar
 
 ```bash
-python matriz_vetor.py
+python main.py
 ```
 
 ## Requisitos
